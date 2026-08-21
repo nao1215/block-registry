@@ -33,6 +33,16 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+// The source types a recipe may declare, in the order the download-source
+// policy prefers them.
+const (
+	// typeGitHubRelease takes an asset of a release of the same repository the
+	// version tags come from, with GitHub's own SHA-256 beside it.
+	typeGitHubRelease = "github_release"
+	// typeHTTP takes a prebuilt artifact from a host policy/hosts.toml lists.
+	typeHTTP = "http"
+)
+
 // maxDescription keeps a description short enough to sit in a terminal
 // column next to the tool's name.
 const maxDescription = 100
@@ -261,7 +271,7 @@ func (s source) tier() int {
 // is fetched either from a GitHub release of the repository the recipe
 // already names, or from a host the policy allows for that repository.
 func (s source) lintDownloadSource(pol *policy) []error {
-	if s.Type != "http" || s.URL == "" {
+	if s.Type != typeHTTP || s.URL == "" {
 		return nil
 	}
 	// The host is read off the template before any placeholder is expanded,
@@ -339,12 +349,12 @@ func (r recipe) lintDescription() []error {
 func (s source) lint() []error {
 	var errs []error
 	switch s.Type {
-	case "github_release":
+	case typeGitHubRelease:
 		if s.URL != "" {
 			errs = append(errs, errors.New(`url is only valid for type "http"`))
 		}
 		errs = append(errs, s.lintAsset()...)
-	case "http":
+	case typeHTTP:
 		if s.Asset != "" {
 			errs = append(errs, errors.New(`asset is only valid for type "github_release"`))
 		}
