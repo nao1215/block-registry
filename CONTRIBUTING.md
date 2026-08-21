@@ -22,7 +22,7 @@ after release, and it fails loudly the day the upstream changes its mind.
 
 ## What belongs in a recipe
 
-- **Take the artifact from the upstream's own GitHub release** whenever the
+- Take the artifact from the upstream's own GitHub release whenever the
   upstream publishes one: block then records the SHA-256 GitHub publishes
   beside it. Only when the upstream builds binaries but does not attach them
   to its releases does a recipe use type `http`, and then the host must be
@@ -30,16 +30,16 @@ after release, and it fails loudly the day the upstream changes its mind.
   naming the repository it serves and why a release asset will not do.
   `make lint` refuses anything else, and that refusal is the point: widening
   what block installs must never quietly widen where block downloads from.
-- **A tool that cannot be had that way does not go in.** Not through a
+- A tool that cannot be had that way does not go in. Not through a
   package manager, not through an install script, not from a mirror someone
   found. Say so in an issue instead — several upstreams have started
   publishing release assets because someone asked.
-- **Follow the upstream's platform coverage.** If there is no macOS x86-64
+- Follow the upstream's platform coverage. If there is no macOS x86-64
   build, leave `darwin/amd64` out: a clear "unsupported platform" beats
   installing something else.
-- **Say what the tool is, not how good it is.** Descriptions are one plain
+- Say what the tool is, not how good it is. Descriptions are one plain
   sentence under 100 characters; upstream marketing does not belong here.
-- **Never add a way to run arbitrary commands.** No `install`, no `command`,
+- Never add a way to run arbitrary commands. No `install`, no `command`,
   no `script`. A recipe is data that block interprets.
 
 ## After it is merged

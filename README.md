@@ -154,8 +154,9 @@ PyPI or crates.io are not here.
 ## Adding or fixing a tool
 
 ```shell
-make lint     # validate every recipe, offline
-make test     # the linter's own tests
+make lint       # validate every recipe, offline
+make test       # the linter's own tests
+make doc-check  # the README catalogue still matches the recipes
 ```
 
 Then try the recipe as a project-local source before opening a pull request —
