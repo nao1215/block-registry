@@ -1,4 +1,4 @@
-.PHONY: lint test website website-serve help
+.PHONY: lint test doc doc-check logo website website-serve help
 
 GO = go
 
@@ -7,6 +7,15 @@ lint: ## Check every recipe (offline, sub-second)
 
 test: ## Run the linter's own tests
 	$(GO) test ./...
+
+doc: ## Regenerate the catalogue table in README.md from the recipes
+	$(GO) run ./cmd/registry-doc
+
+doc-check: ## Fail if the README catalogue is stale (offline; run by CI)
+	$(GO) run ./cmd/registry-doc -check
+
+logo: ## Redraw doc/img from scripts/gen-logo.py (requires Python and Pillow)
+	python3 ./scripts/gen-logo.py
 
 website: ## Build the catalog website into website/public (requires hugo)
 	cd website && hugo --gc --minify --cleanDestinationDir
