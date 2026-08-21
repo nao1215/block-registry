@@ -12,9 +12,10 @@ hermes     hermes     IBC relayer connecting Cosmos SDK chains, written in Rust
 osmosis    osmosisd   Osmosis appchain node (osmosisd), the Cosmos AMM
 ```
 
-This repository holds the data behind that listing. Every `block` binary
-embeds a tested snapshot of it, so `block list` and `block lock` work offline
-and a given block version always pairs with a registry it was tested against.
+This repository holds the data behind that listing, and it is the only place
+recipes are written. block vendors a copy of one revision of `registry/` into
+its own tree and embeds it, so `block list` and `block lock` work offline and
+a given block version always pairs with a registry it was tested against.
 
 **Catalog and documentation:** <https://nao1215.github.io/block-registry/>
 
@@ -140,6 +141,35 @@ the format is identical, so `block lock && block sync && block exec <tool>
 --version` is exactly what a user will experience. The full walkthrough is in
 [Adding a tool](https://nao1215.github.io/block-registry/contributing/).
 
+## How block takes these recipes
+
+block does not depend on this repository as a Go module and never fetches it
+at run time. It vendors a copy:
+
+```text
+block-registry @ <sha>
+      │  make registry-sync   in block: fetches this revision, replaces
+      │                       block/registry/*.toml, writes block/registry/SNAPSHOT
+      ▼
+block/registry/   generated; embedded in the binary with go:embed
+      │  make registry-verify in block: recomputes the digest of those files
+      │                       and fails if they were edited there
+      ▼
+a block release   `block version` prints the revision it carries
+```
+
+That is why `go install github.com/nao1215/block@latest` stays a single
+self-contained download, and why a recipe fixed in block's copy rather than
+here is caught rather than shipped.
+
+Only `registry/` crosses over. `policy/hosts.toml`, `schema/`,
+`cmd/registry-lint` and the catalog site stay here: they are how a recipe is
+reviewed before it is merged, not something block executes. block chooses no
+download source — it executes the one the recipe names — and a project-local
+`[tools.<name>.source]` in someone's `block.toml` is deliberately free to
+point wherever its author needs, so a host allowlist is a rule about *this
+repository's* contents, enforced at this gate.
+
 ## How this is checked
 
 | Check | Where | When |
@@ -149,11 +179,21 @@ the format is identical, so `block lock && block sync && block exec <tool>
 | Recipes match the published JSON Schema | here | every push and pull request |
 | Newest stable version, artifact per platform, checksum, unpack, `--version` probe | [block](https://github.com/nao1215/block) (`make registry-live`) | weekly, and on demand |
 
-The live check lives with block because it needs block's resolver;
-duplicating resolution here would create a second definition of the format.
-This repository owns the data, block owns the behaviour, and the scheduled
-check is what tells a human that an upstream changed — routine releases never
-do.
+The live check lives with block because it needs block's resolver: it asks
+"does this recipe still resolve, download, unpack and run?", which is a
+question only the code that does those things can answer. Duplicating
+resolution here would create a second definition of the format, and the two
+would disagree on the day it mattered. This repository owns the data and the
+rules for reviewing it; block owns the behaviour and the check against
+reality. The scheduled run is what tells a human that an upstream changed —
+routine releases never do.
+
+A recipe merged here reaches users when a maintainer runs `make
+registry-sync` in block and that sync's pull request goes green. Nothing
+detects a new commit here automatically today; adding that would mean a
+personal access token stored as a secret in block, with read access here and
+write access there, which is a credential worth adding only when the cadence
+justifies it.
 
 An existing `block.lock` is unaffected by anything here: it records the URL
 and digest it resolved, and `block sync` installs exactly that. Only

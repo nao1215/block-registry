@@ -42,6 +42,18 @@ after release, and it fails loudly the day the upstream changes its mind.
 - **Never add a way to run arbitrary commands.** No `install`, no `command`,
   no `script`. A recipe is data that block interprets.
 
+## After it is merged
+
+A merged recipe is not yet in anyone's hands. block carries a vendored copy
+of this repository, so a maintainer runs `make registry-sync` there, dispatches
+block's `Registry (live)` workflow for the tools that changed, and opens a
+`chore(registry): sync to <sha>` pull request. Users get it with the next
+block release, and `block version` says which revision they have.
+
+Please do not open a pull request against block's `registry/` directory: it
+is generated, its CI fails on a hand edit, and the change would be undone by
+the next sync.
+
 ## Fixing a broken recipe
 
 The scheduled live check in block's repository is what notices — an asset
