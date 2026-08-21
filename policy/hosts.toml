@@ -1,0 +1,27 @@
+# Where a recipe is allowed to download from.
+#
+# Tier 1 is a GitHub Release asset of the same repository the version tags
+# come from. It needs no entry here: the repository is already named in the
+# recipe, and GitHub records the asset's SHA-256.
+#
+# Tier 2 is a prebuilt artifact on the upstream project's own download server,
+# for the upstreams that publish binaries but do not attach them to a GitHub
+# release. Every such host must be listed below, together with the repository
+# it belongs to and why tier 1 is impossible, and registry-lint refuses any
+# host that is not. That is the whole point of this file: adding a tool can
+# never quietly add a new place block downloads from.
+#
+# A host qualifies only if the upstream project itself operates it or names it
+# as its release location in the project's own documentation. Third-party
+# mirrors, package-manager CDNs, personal forks and file-sharing services do
+# not qualify, whatever their convenience.
+
+[[host]]
+host = "bitcoincore.org"
+repo = "bitcoin/bitcoin"
+why = "Bitcoin Core's own release site; its GitHub releases carry no binaries."
+
+[[host]]
+host = "gethstore.blob.core.windows.net"
+repo = "ethereum/go-ethereum"
+why = "The download server geth.ethereum.org/downloads links to; go-ethereum's GitHub releases carry no binaries."

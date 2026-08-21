@@ -80,7 +80,7 @@ func TestProblemsAreCaught(t *testing.T) {
 		{"duplicate bin", strings.Replace(valid, `bin = ["bin/tool"]`, `bin = ["bin/tool", "bin/tool"]`, 1), "is listed twice"},
 		{"escaping bin", strings.Replace(valid, `bin = ["bin/tool"]`, `bin = ["../tool"]`, 1), "invalid bin entry"},
 		{"absolute bin", strings.Replace(valid, `bin = ["bin/tool"]`, `bin = ["/usr/bin/tool"]`, 1), "invalid bin entry"},
-		{"unsupported platform", strings.Replace(valid, `"darwin/arm64"`, `"windows/amd64"`, 1), `unsupported platform "windows/amd64"`},
+		{"unsupported platform", strings.Replace(valid, `"darwin/arm64"`, `"plan9/amd64"`, 1), `unsupported platform "plan9/amd64"`},
 		{"negative strip", strings.Replace(valid, "strip_components = 1", "strip_components = -1", 1), "must not be negative"},
 		{"strip on a raw executable", strings.Replace(valid, `asset = "tool_v{version}_{os}_{arch}.tar.gz"`, `asset = "tool-{os}"`, 1), "strip_components is only valid for archives"},
 		{"nested bin for a raw executable", strings.Replace(strings.Replace(valid, `asset = "tool_v{version}_{os}_{arch}.tar.gz"`, `asset = "tool-{os}"`, 1), "strip_components = 1", "", 1), "needs exactly one bare bin name"},

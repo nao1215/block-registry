@@ -64,7 +64,16 @@
           "description": "The os/arch pairs the upstream ships. Empty means every platform block supports, or the keys of target.",
           "type": "array",
           "uniqueItems": true,
-          "items": { "enum": ["linux/amd64", "linux/arm64", "darwin/amd64", "darwin/arm64"] }
+          "items": {
+            "enum": [
+              "linux/amd64",
+              "linux/arm64",
+              "darwin/amd64",
+              "darwin/arm64",
+              "windows/amd64",
+              "windows/arm64"
+            ]
+          }
         },
         "bin": {
           "description": "Executables inside the artifact, relative to its root. For a raw executable, the single name to install it under.",
@@ -86,7 +95,16 @@
         "target": {
           "description": "Maps a whole os/arch pair to the upstream's platform string, for {target}.",
           "type": "object",
-          "propertyNames": { "enum": ["linux/amd64", "linux/arm64", "darwin/amd64", "darwin/arm64"] },
+          "propertyNames": {
+            "enum": [
+              "linux/amd64",
+              "linux/arm64",
+              "darwin/amd64",
+              "darwin/arm64",
+              "windows/amd64",
+              "windows/arm64"
+            ]
+          },
           "additionalProperties": { "type": "string" }
         }
       }

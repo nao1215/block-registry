@@ -71,6 +71,11 @@ machine-readable copy is [schema/recipe.schema.json](./schema/recipe.schema.json
 Two install methods cover all of them: `github_release` (a release asset —
 archive or single raw executable — using GitHub's own SHA-256 when it records
 one) and `http` (a prebuilt artifact on the upstream's own download server).
+
+Platform coverage follows each upstream. Most of these tools are Unix-only;
+`cometbft`, `solc`, `agave`, `anchor` and `surfpool` publish Windows builds,
+and their recipes say so. A platform an upstream does not ship for is left
+out, so block reports it rather than installing something else.
 A third is added only when a blockchain CLI genuinely cannot be obtained with
 those, and it will be a type whose meaning and safety boundary block
 understands. There is no `install = "curl … | bash"`, and there never will be.

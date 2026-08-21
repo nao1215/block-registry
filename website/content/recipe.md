@@ -51,6 +51,11 @@ Placeholders: `{version}` (as the upstream spells it, without the tag prefix),
 `{os}`, `{arch}`, `{target}`, and `{commit}` (`http` only — the first 8 hex
 digits of the commit the version tag points at).
 
+Platforms are `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`,
+`windows/amd64` and `windows/arm64`. List only the ones the upstream really
+ships: block reports an unsupported platform rather than substituting
+another, which is the honest answer and the useful one.
+
 Archives may be `.tar.gz` / `.tgz`, `.tar.bz2` / `.tbz2` or `.zip`.
 
 `target` exists because some upstreams do not name platforms as a product of

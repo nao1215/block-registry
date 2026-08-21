@@ -36,6 +36,7 @@ var archiveExtensions = []string{".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".zip"}
 var platforms = map[string]bool{ //nolint:gochecknoglobals // immutable table
 	"linux/amd64": true, "linux/arm64": true,
 	"darwin/amd64": true, "darwin/arm64": true,
+	"windows/amd64": true, "windows/arm64": true,
 }
 
 // recipe mirrors the file format. Unknown keys are an error, so a typo in a
