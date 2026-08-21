@@ -34,9 +34,44 @@ func write(t *testing.T, body string) string {
 	return dir
 }
 
+// testPolicy is the allowlist the fixtures below download against: one vendor
+// host for one repository, the same shape the real policy has.
+func testPolicy(t *testing.T) *policy {
+	t.Helper()
+	return writePolicy(t, `[[host]]
+host = "example.org"
+repo = "owner/tool"
+why = "The fixture upstream publishes binaries on its own site."
+`)
+}
+
+// realPolicy is this repository's own policy, so that the recipes are linted
+// against the file that actually ships.
+func realPolicy(t *testing.T) *policy {
+	t.Helper()
+	pol, err := loadPolicy(filepath.Join("..", "..", "policy", "hosts.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pol
+}
+
+func writePolicy(t *testing.T, body string) *policy {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "hosts.toml")
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pol, err := loadPolicy(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pol
+}
+
 func TestValidRecipePasses(t *testing.T) {
 	t.Parallel()
-	problems, err := lintDir(write(t, valid))
+	problems, err := lintDir(write(t, valid), testPolicy(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,12 +82,16 @@ func TestValidRecipePasses(t *testing.T) {
 
 func TestTheRealRegistryPasses(t *testing.T) {
 	t.Parallel()
-	problems, err := lintDir(filepath.Join("..", "..", "registry"))
+	pol := realPolicy(t)
+	problems, err := lintDir(filepath.Join("..", "..", "registry"), pol)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(problems) != 0 {
 		t.Errorf("the registry does not lint clean:\n%s", strings.Join(problems, "\n"))
+	}
+	if stale := pol.unused(); len(stale) != 0 {
+		t.Errorf("the download-source policy has entries no recipe needs:\n%s", strings.Join(stale, "\n"))
 	}
 }
 
@@ -88,7 +127,7 @@ func TestProblemsAreCaught(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			problems, err := lintDir(write(t, tt.body))
+			problems, err := lintDir(write(t, tt.body), testPolicy(t))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -123,7 +162,7 @@ bin = ["bin/tool"]
 "linux/amd64" = "x86_64-linux-gnu"
 "darwin/arm64" = "arm64-apple-darwin"
 `
-	problems, err := lintDir(write(t, httpRecipe))
+	problems, err := lintDir(write(t, httpRecipe), testPolicy(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +178,7 @@ bin = ["bin/tool"]
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			problems, err := lintDir(write(t, tt.body))
+			problems, err := lintDir(write(t, tt.body), testPolicy(t))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -152,10 +191,123 @@ bin = ["bin/tool"]
 
 func TestEmptyDirectoryIsAnError(t *testing.T) {
 	t.Parallel()
-	if _, err := lintDir(t.TempDir()); err == nil {
+	if _, err := lintDir(t.TempDir(), testPolicy(t)); err == nil {
 		t.Error("an empty directory was accepted")
 	}
-	if _, err := lintDir(filepath.Join(t.TempDir(), "missing")); err == nil {
+	if _, err := lintDir(filepath.Join(t.TempDir(), "missing"), testPolicy(t)); err == nil {
 		t.Error("a missing directory was accepted")
+	}
+}
+
+// The download-source rule: a recipe reaches a GitHub release of the
+// repository it names, or a host the policy allows for that repository.
+// Nothing else, whatever the URL looks like.
+func TestDownloadSourcePolicy(t *testing.T) {
+	t.Parallel()
+	const vendor = `name = "tool"
+ecosystems = ["bitcoin"]
+description = "A tool from a vendor download server"
+
+[source]
+type = "http"
+repo = "owner/tool"
+url = "https://example.org/tool-{version}-{os}.tar.gz"
+bin = ["tool"]
+`
+	for _, tt := range []struct{ name, body, want string }{
+		{
+			"an unlisted host",
+			strings.Replace(vendor, "example.org", "downloads.example.net", 1),
+			`url host "downloads.example.net" is not allowed for owner/tool`,
+		},
+		{
+			// The host is allowed, but for someone else's repository.
+			"the right host for the wrong repository",
+			strings.Replace(vendor, `repo = "owner/tool"`, `repo = "someone/else"`, 1),
+			`url host "example.org" is not allowed for someone/else`,
+		},
+		{
+			"a github release reached by url",
+			strings.Replace(vendor, "https://example.org/tool-{version}-{os}.tar.gz",
+				"https://github.com/owner/tool/releases/download/v{version}/tool-{os}.tar.gz", 1),
+			`use type "github_release"`,
+		},
+		{
+			// A templated host would mean the allowlist could not say what a
+			// recipe downloads from, which is the whole point of having one.
+			"a templated host",
+			strings.Replace(vendor, "https://example.org/", "https://{os}.example.org/", 1),
+			"must be a constant",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			problems, err := lintDir(write(t, tt.body), testPolicy(t))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(strings.Join(problems, "\n"), tt.want) {
+				t.Errorf("problems = %v, want one containing %q", problems, tt.want)
+			}
+		})
+	}
+
+	t.Run("an allowed host passes and is reported as used", func(t *testing.T) {
+		t.Parallel()
+		pol := testPolicy(t)
+		problems, err := lintDir(write(t, vendor), pol)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(problems) != 0 {
+			t.Errorf("an allowed vendor host was rejected: %v", problems)
+		}
+		if !strings.Contains(pol.summary, "1 from an allowed vendor host") {
+			t.Errorf("summary = %q", pol.summary)
+		}
+	})
+
+	// An entry nothing downloads from is a problem too: the allowlist must
+	// shrink when a tool moves back to GitHub releases.
+	t.Run("a stale policy entry", func(t *testing.T) {
+		t.Parallel()
+		pol := testPolicy(t)
+		if _, err := lintDir(write(t, valid), pol); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(strings.Join(pol.unused(), "\n"), "no recipe downloads from it") {
+			t.Errorf("unused() = %v, want the host reported", pol.unused())
+		}
+	})
+}
+
+func TestPolicyFileIsItselfChecked(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct{ name, body, want string }{
+		{"no host", "[[host]]\nrepo = \"o/r\"\nwhy = \"because\"\n", "has no host"},
+		{"no repo", "[[host]]\nhost = \"example.org\"\nwhy = \"because\"\n", "which repository"},
+		{"no reason", "[[host]]\nhost = \"example.org\"\nrepo = \"o/r\"\n", "why a GitHub release asset will not do"},
+		{"github", "[[host]]\nhost = \"github.com\"\nrepo = \"o/r\"\nwhy = \"because\"\n", `must use type "github_release"`},
+		{"unknown key", "[[host]]\nhost = \"example.org\"\nrepo = \"o/r\"\nwhy = \"because\"\nnote = \"x\"\n", `unknown key`},
+		{
+			"listed twice",
+			"[[host]]\nhost = \"example.org\"\nrepo = \"o/r\"\nwhy = \"because\"\n[[host]]\nhost = \"example.org\"\nrepo = \"o/r\"\nwhy = \"again\"\n",
+			"listed twice",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			path := filepath.Join(t.TempDir(), "hosts.toml")
+			if err := os.WriteFile(path, []byte(tt.body), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			_, err := loadPolicy(path)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("loadPolicy() error = %v, want one containing %q", err, tt.want)
+			}
+		})
+	}
+	if _, err := loadPolicy(filepath.Join(t.TempDir(), "missing.toml")); err == nil {
+		t.Error("a missing policy file was accepted")
 	}
 }

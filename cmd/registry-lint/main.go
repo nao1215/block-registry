@@ -1,20 +1,29 @@
 // Command registry-lint checks every recipe in this repository before it can
 // reach a block release.
 //
-// It validates what block itself cannot see — the file name, the ecosystems
-// and the description — and the shape of the source table, offline and in
-// under a second. What a recipe *resolves to* is not checked here: that needs
-// block's resolver, and duplicating it would create a second definition of
-// the format. block runs those live checks against the snapshot it embeds
-// (see the README).
+// It validates what block itself cannot see — the file name, the ecosystems,
+// the description and, above all, where the recipe downloads from — plus the
+// shape of the source table, offline and in under a second. What a recipe
+// *resolves to* is not checked here: that needs block's resolver, and
+// duplicating it would create a second definition of the format. block runs
+// those live checks against the snapshot it embeds (see the README).
 //
-//	registry-lint            # lint ./registry
-//	registry-lint ../other   # lint another directory
+// The download-source rule is the one to look for first. A recipe may take
+// its artifact from a GitHub Release of the repository it already names
+// (tier 1), or from a host that policy/hosts.toml lists for that repository
+// (tier 2). Nothing else passes, so widening what block installs can never
+// quietly widen where block downloads from.
+//
+//	registry-lint                    # lint ./registry against ./policy/hosts.toml
+//	registry-lint ../other           # lint another recipe directory
+//	registry-lint -hosts h.toml dir  # lint against another policy
 package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -37,6 +46,14 @@ var platforms = map[string]bool{ //nolint:gochecknoglobals // immutable table
 	"linux/amd64": true, "linux/arm64": true,
 	"darwin/amd64": true, "darwin/arm64": true,
 	"windows/amd64": true, "windows/arm64": true,
+}
+
+// gitHubHosts serve GitHub's own release assets. Reaching them through type
+// "http" would spell out by hand what type "github_release" does properly,
+// and would throw away the SHA-256 GitHub publishes beside the asset.
+var gitHubHosts = map[string]bool{ //nolint:gochecknoglobals // immutable table
+	"github.com": true, "objects.githubusercontent.com": true,
+	"release-assets.githubusercontent.com": true, "codeload.github.com": true,
 }
 
 // recipe mirrors the file format. Unknown keys are an error, so a typo in a
@@ -63,15 +80,23 @@ type source struct {
 }
 
 func main() {
+	hostsPath := flag.String("hosts", filepath.Join("policy", "hosts.toml"), "download-source policy to lint against")
+	flag.Parse()
 	dir := "registry"
-	if len(os.Args) > 1 {
-		dir = os.Args[1]
+	if flag.NArg() > 0 {
+		dir = flag.Arg(0)
 	}
-	problems, err := lintDir(dir)
+	pol, err := loadPolicy(*hostsPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "registry-lint: %v\n", err)
 		os.Exit(2) //nolint:mnd // 2: could not run, as distinct from "found problems"
 	}
+	problems, err := lintDir(dir, pol)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "registry-lint: %v\n", err)
+		os.Exit(2) //nolint:mnd // 2: could not run, as distinct from "found problems"
+	}
+	problems = append(problems, pol.unused()...)
 	for _, p := range problems {
 		fmt.Fprintln(os.Stderr, p)
 	}
@@ -79,11 +104,89 @@ func main() {
 		fmt.Fprintf(os.Stderr, "\n%d problem(s) in %s\n", len(problems), dir)
 		os.Exit(1)
 	}
-	fmt.Printf("registry-lint: every recipe in %s is valid\n", dir)
+	fmt.Printf("registry-lint: %s\n", pol.summary)
+}
+
+// policy is the download-source rule the recipes are held to: the hosts a
+// type "http" recipe may name, and for which repository each one is allowed.
+type policy struct {
+	hosts   []hostRule
+	used    map[string]bool
+	summary string
+}
+
+// hostRule allows exactly one host for exactly one upstream repository. The
+// pairing matters: a host that is right for Bitcoin Core is not thereby a
+// host any other recipe may reach.
+type hostRule struct {
+	Host string `toml:"host"`
+	Repo string `toml:"repo"`
+	Why  string `toml:"why"`
+}
+
+// loadPolicy reads the host allowlist. A missing or malformed file stops the
+// run rather than silently letting every host through.
+func loadPolicy(path string) (*policy, error) {
+	data, err := os.ReadFile(path) //nolint:gosec // linting the repository's own files
+	if err != nil {
+		return nil, fmt.Errorf("download-source policy: %w", err)
+	}
+	var doc struct {
+		Host []hostRule `toml:"host"`
+	}
+	md, err := toml.Decode(string(data), &doc)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	if u := md.Undecoded(); len(u) > 0 {
+		return nil, fmt.Errorf("%s: unknown key %q", path, u[0].String())
+	}
+	seen := map[string]bool{}
+	for _, h := range doc.Host {
+		switch {
+		case h.Host == "":
+			return nil, fmt.Errorf("%s: a host entry has no host", path)
+		case h.Repo == "":
+			return nil, fmt.Errorf("%s: host %q does not say which repository it serves", h.Host, path)
+		case h.Why == "":
+			return nil, fmt.Errorf("%s: host %q does not say why a GitHub release asset will not do", path, h.Host)
+		case gitHubHosts[h.Host]:
+			return nil, fmt.Errorf("%s: host %q serves GitHub releases: such a tool must use type \"github_release\"", path, h.Host)
+		case seen[h.Host+" "+h.Repo]:
+			return nil, fmt.Errorf("%s: host %q is listed twice for %s", path, h.Host, h.Repo)
+		}
+		seen[h.Host+" "+h.Repo] = true
+	}
+	return &policy{hosts: doc.Host, used: map[string]bool{}}, nil
+}
+
+// allows reports whether repo may download from host, and records the match
+// so that an entry no recipe needs can be reported as stale.
+func (p *policy) allows(host, repo string) bool {
+	for _, h := range p.hosts {
+		if h.Host == host && h.Repo == repo {
+			p.used[h.Host+" "+h.Repo] = true
+			return true
+		}
+	}
+	return false
+}
+
+// unused names the policy entries no recipe relies on. They are reported so
+// that the allowlist shrinks when a tool moves back to GitHub releases,
+// rather than accumulating hosts nothing downloads from any more.
+func (p *policy) unused() []string {
+	var out []string
+	for _, h := range p.hosts {
+		if !p.used[h.Host+" "+h.Repo] {
+			out = append(out, fmt.Sprintf("policy/hosts.toml: %s is allowed for %s but no recipe downloads from it", h.Host, h.Repo))
+		}
+	}
+	return out
 }
 
 // lintDir returns one message per problem, in file order.
-func lintDir(dir string) ([]string, error) {
+func lintDir(dir string, pol *policy) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -99,30 +202,91 @@ func lintDir(dir string) ([]string, error) {
 	}
 	sort.Strings(files)
 	var problems []string
+	tiers := map[int]int{}
 	for _, name := range files {
-		for _, err := range lintFile(filepath.Join(dir, name)) {
+		errs, tier := lintFile(filepath.Join(dir, name), pol)
+		for _, err := range errs {
 			problems = append(problems, fmt.Sprintf("%s: %v", name, err))
 		}
+		tiers[tier]++
 	}
+	pol.summary = fmt.Sprintf("%d recipe(s) in %s: %d from a GitHub release, %d from an allowed vendor host",
+		len(files), dir, tiers[tierGitHubRelease], tiers[tierVendorHost])
 	return problems, nil
 }
 
-func lintFile(path string) []error {
+// The tiers of the download-source policy, in the order a recipe should
+// prefer them. tierUnknown is what a recipe with a broken source counts as,
+// so a summary never claims a source it could not classify.
+const (
+	tierUnknown = iota
+	tierGitHubRelease
+	tierVendorHost
+)
+
+// lintFile returns the problems in one recipe and which download-source tier
+// it belongs to.
+func lintFile(path string, pol *policy) ([]error, int) {
 	data, err := os.ReadFile(path) //nolint:gosec // linting the repository's own files
 	if err != nil {
-		return []error{err}
+		return []error{err}, tierUnknown
 	}
 	var r recipe
 	md, err := toml.Decode(string(data), &r)
 	if err != nil {
-		return []error{err}
+		return []error{err}, tierUnknown
 	}
 	var errs []error
 	for _, key := range md.Undecoded() {
 		errs = append(errs, fmt.Errorf("unknown key %q", key.String()))
 	}
 	errs = append(errs, r.lint(filepath.Base(path))...)
-	return errs
+	errs = append(errs, r.Source.lintDownloadSource(pol)...)
+	return errs, r.Source.tier()
+}
+
+// tier classifies where the recipe downloads from.
+func (s source) tier() int {
+	switch s.Type {
+	case "github_release":
+		return tierGitHubRelease
+	case "http":
+		return tierVendorHost
+	default:
+		return tierUnknown
+	}
+}
+
+// lintDownloadSource applies the rule this repository exists to keep: a tool
+// is fetched either from a GitHub release of the repository the recipe
+// already names, or from a host the policy allows for that repository.
+func (s source) lintDownloadSource(pol *policy) []error {
+	if s.Type != "http" || s.URL == "" {
+		return nil
+	}
+	// The host is read off the template before any placeholder is expanded,
+	// so a templated host is caught here rather than becoming a url only the
+	// resolver could tell you about.
+	if rest, ok := strings.CutPrefix(s.URL, "https://"); ok {
+		authority, _, _ := strings.Cut(rest, "/")
+		if strings.ContainsAny(authority, "{}") {
+			return []error{fmt.Errorf("url host %q is templated: the host a recipe downloads from must be a constant", authority)}
+		}
+	}
+	u, err := url.Parse(s.URL)
+	if err != nil {
+		return []error{fmt.Errorf("url template %q is not a url: %w", s.URL, err)}
+	}
+	host := u.Hostname()
+	switch {
+	case host == "":
+		return []error{fmt.Errorf("url template %q names no host", s.URL)}
+	case gitHubHosts[host]:
+		return []error{fmt.Errorf("url host %q serves GitHub releases: use type \"github_release\" so the asset's published digest is used", host)}
+	case !pol.allows(host, s.Repo):
+		return []error{fmt.Errorf("url host %q is not allowed for %s: add it to policy/hosts.toml with the reason a GitHub release asset will not do", host, s.Repo)}
+	}
+	return nil
 }
 
 func (r recipe) lint(fileName string) []error {
