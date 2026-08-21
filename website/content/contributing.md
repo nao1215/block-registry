@@ -1,6 +1,7 @@
 ---
 title: Adding a tool
 description: "How to add or fix a recipe in the block registry, and what CI checks before it ships."
+toc: true
 ---
 
 ## Add a recipe

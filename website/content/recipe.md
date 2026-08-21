@@ -1,6 +1,7 @@
 ---
 title: Recipe format
 description: "Every field of a block registry recipe, and the rule that decides where it may download from."
+toc: true
 ---
 
 One TOML file per tool, named after the tool. The
