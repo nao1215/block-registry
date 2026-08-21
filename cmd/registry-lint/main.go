@@ -371,9 +371,6 @@ func (s source) lintAsset() []error {
 	if strings.ContainsAny(s.Asset, "/\\") {
 		errs = append(errs, fmt.Errorf("asset template %q must be a bare file name", s.Asset))
 	}
-	if strings.Contains(s.Asset, "{commit}") {
-		errs = append(errs, errors.New("{commit} is only valid in an http url"))
-	}
 	return append(errs, s.lintTemplate(s.Asset)...)
 }
 

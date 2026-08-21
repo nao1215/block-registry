@@ -13,7 +13,7 @@ timeZone = "UTC"
 
 [params]
 tagline = "The blockchain CLIs block can install"
-description = "Recipes that tell block how to find and fetch blockchain development tools: Bitcoin Core, Foundry, geth, reth, Lighthouse, Agave, Anchor, Gaia, CometBFT, Hermes and more."
+description = "Recipes that tell block how to find and fetch blockchain development tools: 45 CLIs across Bitcoin, Ethereum, Solana, Cosmos, Starknet, Aptos, Cardano and more."
 repo = "https://github.com/nao1215/block-registry"
 
 [[module.mounts]]

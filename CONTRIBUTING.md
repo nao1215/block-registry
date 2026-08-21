@@ -22,10 +22,18 @@ after release, and it fails loudly the day the upstream changes its mind.
 
 ## What belongs in a recipe
 
-- **Pick the most self-contained install method the upstream supports**:
-  an official prebuilt GitHub Release asset first, an official prebuilt
-  artifact on the upstream's own server second. Nothing else is implemented,
-  and a new method is added only when a real tool needs it.
+- **Take the artifact from the upstream's own GitHub release** whenever the
+  upstream publishes one: block then records the SHA-256 GitHub publishes
+  beside it. Only when the upstream builds binaries but does not attach them
+  to its releases does a recipe use type `http`, and then the host must be
+  added to [policy/hosts.toml](./policy/hosts.toml) in the same change,
+  naming the repository it serves and why a release asset will not do.
+  `make lint` refuses anything else, and that refusal is the point: widening
+  what block installs must never quietly widen where block downloads from.
+- **A tool that cannot be had that way does not go in.** Not through a
+  package manager, not through an install script, not from a mirror someone
+  found. Say so in an issue instead — several upstreams have started
+  publishing release assets because someone asked.
 - **Follow the upstream's platform coverage.** If there is no macOS x86-64
   build, leave `darwin/amd64` out: a clear "unsupported platform" beats
   installing something else.

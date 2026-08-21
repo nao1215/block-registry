@@ -1,6 +1,6 @@
 ---
 title: Recipe format
-description: "Every field of a block registry recipe, and the order of preference between install methods."
+description: "Every field of a block registry recipe, and the rule that decides where it may download from."
 ---
 
 One TOML file per tool, named after the tool. The
@@ -48,8 +48,9 @@ arm64 = "aarch64"
 | `source.target` | both | Maps a whole `os/arch` pair to the upstream's platform string, for `{target}`. |
 
 Placeholders: `{version}` (as the upstream spells it, without the tag prefix),
-`{os}`, `{arch}`, `{target}`, and `{commit}` (`http` only — the first 8 hex
-digits of the commit the version tag points at).
+`{os}`, `{arch}`, `{target}`, and `{commit}` — the first 8 hex digits of the
+commit the version tag points at, for the upstreams that stamp the build
+commit into the artifact's name (vyper, Nimbus, go-ethereum).
 
 Platforms are `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`,
 `windows/amd64` and `windows/arm64`. List only the ones the upstream really
@@ -63,26 +64,42 @@ OS and architecture: Bitcoin Core writes `aarch64-linux-gnu` but
 `arm64-apple-darwin`. Use `os` and `arch` when they suffice, `target` when
 they do not.
 
-## Choosing an install method
+## Where a recipe may download from
 
-A recipe states exactly one method, and block executes it without ever falling
-back to another at run time. Pick the highest the upstream really supports:
+A recipe states exactly one download source, and block executes it without
+ever falling back to another at run time. Which source is allowed is not a
+matter of taste — it is a rule the linter enforces on every push, so that a
+catalog which keeps growing cannot quietly grow the set of places block
+fetches binaries from.
 
-1. **Official prebuilt GitHub Release artifact** — `github_release`. GitHub
-   records a SHA-256 for assets uploaded since 2025, which block writes
-   straight into the lockfile without downloading anything.
-2. **Official prebuilt artifact on the upstream's own server** — `http`. The
-   checksum is recorded on the first download.
-3. Official package registry (`go install`, `cargo install`, npm, pipx) — *not
-   implemented*.
-4. Limited build from official source — *not implemented*.
+1. **A GitHub Release asset of the repository the recipe already names** —
+   `github_release`. The artifact and the version tag come from the same
+   project, and GitHub records a SHA-256 for assets uploaded since 2025,
+   which block writes straight into the lockfile without downloading
+   anything. Prefer this whenever the upstream publishes one.
+2. **A prebuilt artifact on the upstream's own download server** — `http`,
+   and only from a host listed in
+   [`policy/hosts.toml`](https://github.com/nao1215/block-registry/blob/main/policy/hosts.toml).
+   Each entry names the one repository the host serves and why a release
+   asset will not do. The checksum is recorded on the first download.
 
-Every tool in the catalog is served by the first two. A third method will be
-added only when a blockchain CLI genuinely cannot be obtained with them, and
-it will be a type whose meaning and safety boundary block understands.
+`registry-lint` refuses a url whose host is not listed for that repository, a
+url whose host is itself a placeholder, and a `github.com` url wearing type
+`http` when `github_release` would carry the published digest. It also
+reports an allowlist entry no recipe uses, so the list shrinks when an
+upstream starts attaching binaries to its releases.
 
-There is no `install = "curl … | bash"`, no `command = "make install"`, and no
-arbitrary-script escape hatch. A recipe is data.
+A host qualifies for tier 2 only if the upstream project operates it or names
+it as its release location in the project's own documentation. Third-party
+mirrors, package-manager CDNs, personal forks and file-sharing services do
+not, however convenient they are.
+
+There is no tier 3. No `install = "curl … | bash"`, no `command = "make
+install"`, no package-manager shell-out, and no arbitrary-script escape
+hatch. A recipe is data. block does not manage language runtimes either, so a
+tool distributed only through npm, PyPI or crates.io is not in the catalog —
+and saying so in an upstream issue has, more than once, produced release
+assets.
 
 ## What recipes never do
 

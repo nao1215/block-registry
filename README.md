@@ -60,25 +60,73 @@ machine-readable copy is [schema/recipe.schema.json](./schema/recipe.schema.json
 
 ## What is in here
 
+45 tools across 17 blockchain systems, enough that a project's toolchain —
+node, compiler, test runner, relayer — can be pinned without reaching for
+anything else.
+
 | Ecosystem | Tools |
 | --- | --- |
-| bitcoin | `bitcoin-core` |
-| ethereum | `foundry`, `solc`, `geth`, `reth`, `lighthouse` |
-| solana | `agave`, `anchor`, `surfpool` |
-| cosmos | `gaia`, `cometbft`, `osmosis` |
-| ibc | `hermes` |
+| bitcoin | `bitcoin-core`, `btcd`, `ord` |
+| ethereum | `foundry`, `solc`, `vyper`, `geth`, `geth-tools`, `erigon`, `reth`, `lighthouse`, `prysm`, `prysm-validator`, `nimbus-eth2`, `echidna`, `medusa`, `hevm`, `ethdo`, `anvil-zksync` |
+| solana | `agave`, `anchor`, `surfpool`, `solana-verify` |
+| cosmos | `gaia`, `cometbft`, `osmosis`, `ignite`, `cosmovisor`, `hermes`, `cosmos-relayer`, `celestia-app`, `celestia-node` |
+| ibc | `hermes`, `cosmos-relayer` |
+| celestia | `celestia-app`, `celestia-node` |
+| aptos | `aptos` |
+| near | `near-cli` |
+| starknet | `scarb`, `starknet-foundry`, `starkli` |
+| cardano | `cardano-node` |
+| stellar | `stellar` |
+| avalanche | `avalanchego`, `avalanche-cli` |
+| icp | `dfx` |
+| fabric | `fabric` |
+| zksync | `anvil-zksync` |
+| zk | `circom` |
+| ipfs | `kubo` |
 
-Two install methods cover all of them: `github_release` (a release asset —
-archive or single raw executable — using GitHub's own SHA-256 when it records
-one) and `http` (a prebuilt artifact on the upstream's own download server).
+A tool serving several systems is listed under each: Hermes is reached for
+from both Cosmos and IBC work, Celestia's binaries are Cosmos SDK binaries.
 
-Platform coverage follows each upstream. Most of these tools are Unix-only;
-`cometbft`, `solc`, `agave`, `anchor` and `surfpool` publish Windows builds,
-and their recipes say so. A platform an upstream does not ship for is left
-out, so block reports it rather than installing something else.
-A third is added only when a blockchain CLI genuinely cannot be obtained with
-those, and it will be a type whose meaning and safety boundary block
-understands. There is no `install = "curl … | bash"`, and there never will be.
+### Not here, and why
+
+An absence is a decision, so the notable ones are written down rather than
+left to be rediscovered:
+
+| Tool | Why not |
+| --- | --- |
+| Sui | The release archive carries a 3.7 GB `sui-debug` build beside the 217 MB CLI, and block extracts an archive whole. Installing four gigabytes to get one command is not an install. |
+| Nethermind | Its zip contains symbolic links, and block refuses to extract links rather than reason about where they point. |
+| Lotus | The published binary links against system libraries (`libhwloc`) that block neither ships nor installs, so it would install and then fail to start. |
+| Besu, Teku | Java archives that need a JVM block does not manage. |
+| TON | Release tags are dated `v2026.08`, which is not a version block can order (`08` is not a number with a leading zero). |
+| lnd, Algorand | Every release is tagged as a pre-release (`-beta`, `-stable`), and block never resolves a pre-release. |
+| Hardhat, Slither, Mythril | Distributed through npm and PyPI only; block does not manage language runtimes or their package managers. |
+
+## Where a recipe downloads from
+
+The catalog grows; where it downloads from must not drift while it does. So
+the rule is written down and enforced, not left to whoever writes the recipe.
+
+| Tier | Method | What it means |
+| --- | --- | --- |
+| 1 | `github_release` | An asset of a release of the same repository the version tags come from. GitHub publishes the asset's SHA-256, and block records it. |
+| 2 | `http` | A prebuilt artifact on a host listed in [policy/hosts.toml](./policy/hosts.toml), for an upstream that publishes binaries but does not attach them to its releases. |
+
+Tier 2 is for the upstreams that genuinely need it — today Bitcoin Core and
+go-ethereum (twice: `geth` and `geth-tools`), both of which build binaries
+and publish them on their own server rather than on GitHub. Each entry names the one repository the host
+serves and why tier 1 will not do, and `registry-lint` refuses a recipe whose
+url reaches anywhere else, a url whose host is itself a placeholder, and a
+`github.com` url wearing type `http` when `github_release` would carry the
+digest. An entry no recipe uses is reported too, so the list of hosts block
+downloads from shrinks as well as grows.
+
+There is no third tier. No `install = "curl ... | bash"`, no `command =
+"make install"`, no arbitrary-script escape hatch, and no package-manager
+shell-out — a recipe is data block interprets, and adding a tool can never
+add a way to run something. block does not manage language runtimes (Go,
+Rust, Node, Python) either, which is why tools distributed only through npm,
+PyPI or crates.io are not here.
 
 ## Adding or fixing a tool
 
@@ -97,6 +145,7 @@ the format is identical, so `block lock && block sync && block exec <tool>
 | Check | Where | When |
 | --- | --- | --- |
 | File name, ecosystems, description, source shape, executable-path safety | here (`registry-lint`) | every push and pull request |
+| Download host against `policy/hosts.toml` | here (`registry-lint`) | every push and pull request |
 | Recipes match the published JSON Schema | here | every push and pull request |
 | Newest stable version, artifact per platform, checksum, unpack, `--version` probe | [block](https://github.com/nao1215/block) (`make registry-live`) | weekly, and on demand |
 
