@@ -1,5 +1,5 @@
 ---
-title: block registry
+title: block-registry
 ---
 
 This repository is the canonical source of the recipes that tell

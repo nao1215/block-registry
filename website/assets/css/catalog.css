@@ -1,0 +1,56 @@
+/* Catalogue-only additions to the shared stylesheet. site.css and chroma.css
+   are byte-identical across nao1215's documentation sites so they can be kept
+   in sync; anything specific to rendering the recipe tables lives here. */
+
+.catalog-filter {
+  width: 100%;
+  max-width: 22rem;
+  margin: 0 0 1.5rem;
+  padding: 0.45rem 0.7rem;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--fg);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.catalog-count {
+  color: var(--muted);
+}
+
+/* The catalogue is four columns of mostly-prose and needs more room than the
+   reading measure the rest of the site is set to, so it breaks out of <main>'s
+   56rem by half the difference on each side and stops at the viewport. */
+.catalog {
+  --catalog-width: min(72rem, 94vw);
+  width: var(--catalog-width);
+  margin-left: calc(50% - var(--catalog-width) / 2);
+  margin-right: calc(50% - var(--catalog-width) / 2);
+}
+
+.catalog table {
+  font-size: 0.92rem;
+}
+
+.catalog td:first-child,
+.catalog td:nth-child(2) {
+  white-space: nowrap;
+}
+
+.tag {
+  display: inline-block;
+  white-space: nowrap;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+.catalog-empty {
+  color: var(--muted);
+  font-style: italic;
+}

@@ -42,14 +42,14 @@ description: "How to add or fix a recipe in the block registry, and what CI chec
 
 ## What CI checks
 
-**On every pull request**, `registry-lint` validates each recipe offline: the
+On every pull request, `registry-lint` validates each recipe offline: the
 file name matches `name`, the ecosystems and description are present and
 well-formed, the source table has the fields its type needs, placeholders are
 ones block knows, executable paths cannot escape the install directory, and
 platform names are real. The recipes are also validated against the published
 JSON Schema.
 
-**On a schedule**, block's own repository runs the live check against the
+On a schedule, block's own repository runs the live check against the
 snapshot it embeds: newest stable version per recipe, artifact resolution for
 every declared platform, checksum verification, unpacking, and a probe of
 every declared executable. That check lives with block because it needs

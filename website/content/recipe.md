@@ -72,12 +72,12 @@ matter of taste — it is a rule the linter enforces on every push, so that a
 catalog which keeps growing cannot quietly grow the set of places block
 fetches binaries from.
 
-1. **A GitHub Release asset of the repository the recipe already names** —
+1. A GitHub Release asset of the repository the recipe already names —
    `github_release`. The artifact and the version tag come from the same
    project, and GitHub records a SHA-256 for assets uploaded since 2025,
    which block writes straight into the lockfile without downloading
    anything. Prefer this whenever the upstream publishes one.
-2. **A prebuilt artifact on the upstream's own download server** — `http`,
+2. A prebuilt artifact on the upstream's own download server — `http`,
    and only from a host listed in
    [`policy/hosts.toml`](https://github.com/nao1215/block-registry/blob/main/policy/hosts.toml).
    Each entry names the one repository the host serves and why a release

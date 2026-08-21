@@ -6,7 +6,7 @@
 # editors can point at a stable URL.
 baseURL = "https://nao1215.github.io/block-registry/"
 locale = "en-us"
-title = "block registry"
+title = "block-registry"
 disableKinds = ["taxonomy", "term", "rss"]
 enableRobotsTXT = true
 timeZone = "UTC"
@@ -16,17 +16,42 @@ tagline = "The blockchain CLIs block can install"
 description = "Recipes that tell block how to find and fetch blockchain development tools: 45 CLIs across Bitcoin, Ethereum, Solana, Cosmos, Starknet, Aptos, Cardano and more."
 repo = "https://github.com/nao1215/block-registry"
 
+[module]
+[[module.mounts]]
+source = "content"
+target = "content"
+
+[[module.mounts]]
+source = "layouts"
+target = "layouts"
+
+[[module.mounts]]
+source = "assets"
+target = "assets"
+
+# The recipes themselves, mounted as site data so the catalogue is rendered
+# from the files block will embed rather than from a second list.
 [[module.mounts]]
 source = "../registry"
 target = "data/registry"
 
+# Published byte-for-byte so an editor can point at a stable schema URL.
 [[module.mounts]]
 source = "../schema"
 target = "static/schema"
 
+# Images served as-is, and mounted again as processable assets so the layouts
+# can derive a social card and a favicon at build time.
+[[module.mounts]]
+source = "../doc/img"
+target = "static/img"
+
+[[module.mounts]]
+source = "../doc/img"
+target = "assets/imgsrc"
+
 [markup.highlight]
 noClasses = false
-style = "github"
 
 [markup.tableOfContents]
 startLevel = 2
@@ -49,10 +74,6 @@ weight = 30
 
 [[menus.main]]
 name = "block"
-url = "https://github.com/nao1215/block"
+url = "https://nao1215.github.io/block/"
 weight = 40
 
-[[menus.main]]
-name = "GitHub"
-url = "https://github.com/nao1215/block-registry"
-weight = 50

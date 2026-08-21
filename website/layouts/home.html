@@ -1,62 +1,111 @@
 {{ define "main" }}
-  <section class="hero">
-    <h1>{{ site.Title }}</h1>
-    <p class="tagline">{{ site.Params.tagline }}</p>
-  </section>
+<div class="hero">
+{{- with resources.Get "imgsrc/block-registry-logo.png" }}
+{{- $logo := .Resize "760x q90" }}
+<img class="hero-logo" src="{{ $logo.RelPermalink }}" alt="block-registry" width="{{ $logo.Width }}" height="{{ $logo.Height }}">
+{{- else }}
+<img class="hero-logo" src="{{ relURL "img/block-registry-logo.png" }}" alt="block-registry" width="1800" height="600">
+{{- end }}
+<h1>{{ site.Params.tagline }}</h1>
+</div>
 
-  <article class="prose">{{ .Content }}</article>
+<article>
+{{ .Content }}
 
-  {{/* The catalog is rendered from registry/*.toml, mounted as site data, so
-       it says exactly what block installs — no second list to maintain. */}}
-  {{ $recipes := slice }}
-  {{ range $file, $recipe := hugo.Data.registry }}
-    {{ $recipes = $recipes | append (dict "name" $recipe.name "ecosystems" $recipe.ecosystems "description" $recipe.description "source" $recipe.source) }}
+{{/* The catalogue is rendered from registry/*.toml, mounted as site data, so
+     it says exactly what block installs — there is no second list to keep in
+     step with the recipes. */}}
+{{ $recipes := slice }}
+{{ range $file, $recipe := hugo.Data.registry }}
+  {{ $recipes = $recipes | append (dict "name" $recipe.name "ecosystems" $recipe.ecosystems "description" $recipe.description "source" $recipe.source) }}
+{{ end }}
+
+{{ $ecosystems := slice }}
+{{ range $recipes }}
+  {{ range .ecosystems }}
+    {{ if not (in $ecosystems .) }}{{ $ecosystems = $ecosystems | append . }}{{ end }}
   {{ end }}
+{{ end }}
+</article>
 
-  {{ $ecosystems := slice }}
-  {{ range $recipes }}
-    {{ range .ecosystems }}
-      {{ if not (in $ecosystems .) }}{{ $ecosystems = $ecosystems | append . }}{{ end }}
-    {{ end }}
-  {{ end }}
+<div class="catalog">
+<h2 id="catalog">Catalog <a class="hlink" href="#catalog" aria-label="Link to this section">#</a></h2>
+<p class="catalog-count">
+  {{ len $recipes }} tools across {{ len $ecosystems }} blockchain systems.
+  Run <code>block list</code> for the same list from your own binary.
+</p>
 
-  <section class="prose wide" id="catalog">
-    <h2>Catalog</h2>
-    <p class="count">
-      {{ len $recipes }} tools across {{ len $ecosystems }} blockchain systems.
-      Run <code>block list</code> for the same list from your own binary.
-    </p>
+<input type="search" class="catalog-filter" placeholder="Filter by tool, command or description…" aria-label="Filter the catalog" autocomplete="off">
+<p class="catalog-empty" hidden>Nothing matches that.</p>
 
-    {{ range sort $ecosystems }}
-      {{ $ecosystem := . }}
-      <h3 id="{{ $ecosystem | urlize }}">{{ $ecosystem }}</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Tool</th>
-            <th>Commands</th>
-            <th>Description</th>
-            <th>Upstream</th>
-          </tr>
-        </thead>
-        <tbody>
-          {{ range sort (where $recipes "ecosystems" "intersect" (slice $ecosystem)) "name" }}
-            <tr>
-              <td><code>{{ .name }}</code></td>
-              <td>
-                {{ range $i, $bin := .source.bin }}
-                  {{ if $i }}, {{ end }}<code>{{ path.Base $bin }}</code>
-                {{ end }}
-              </td>
-              <td>{{ .description }}</td>
-              <td>
-                <a href="https://github.com/{{ .source.repo }}" rel="noopener">{{ .source.repo }}</a>
-                {{ if eq .source.type "http" }}<span class="tag" title="Prebuilt artifacts come from the upstream's own download server">vendor download</span>{{ end }}
-              </td>
-            </tr>
-          {{ end }}
-        </tbody>
-      </table>
-    {{ end }}
-  </section>
+{{ range sort $ecosystems }}
+  {{ $ecosystem := . }}
+  <h3 id="{{ $ecosystem | urlize }}">{{ $ecosystem }} <a class="hlink" href="#{{ $ecosystem | urlize }}" aria-label="Link to this section">#</a></h3>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Tool</th>
+        <th>Commands</th>
+        <th>Description</th>
+        <th>Upstream</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{ range sort (where $recipes "ecosystems" "intersect" (slice $ecosystem)) "name" }}
+        <tr>
+          <td><code>{{ .name }}</code></td>
+          <td>
+            {{- range $i, $bin := .source.bin }}
+              {{- if $i }}, {{ end }}<code>{{ path.Base $bin }}</code>
+            {{- end }}
+          </td>
+          <td>{{ .description }}</td>
+          <td>
+            <a href="https://github.com/{{ .source.repo }}" rel="noopener">{{ .source.repo }}</a>
+            {{ if eq .source.type "http" }}<span class="tag" title="Prebuilt artifacts come from the upstream's own download server">vendor download</span>{{ end }}
+          </td>
+        </tr>
+      {{ end }}
+    </tbody>
+  </table>
+  </div>
+{{ end }}
+</div>
+
+<script>
+// Live filter over the catalogue: type "relayer" or "forge" and only the rows
+// that mention it stay, with an ecosystem heading hidden once none of its rows
+// survive. Plain DOM over the already-rendered tables — there is no index to
+// fetch and nothing happens until a key is pressed.
+(function () {
+  var input = document.querySelector(".catalog-filter");
+  var root = document.querySelector(".catalog");
+  if (!input || !root) return;
+  var empty = root.querySelector(".catalog-empty");
+  var groups = Array.prototype.map.call(root.querySelectorAll("h3"), function (h) {
+    var wrap = h.nextElementSibling;
+    var rows = Array.prototype.map.call(wrap.querySelectorAll("tbody tr"), function (tr) {
+      return { tr: tr, text: tr.textContent.toLowerCase() };
+    });
+    return { heading: h, wrap: wrap, rows: rows };
+  });
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    var any = false;
+    groups.forEach(function (g) {
+      var shown = 0;
+      g.rows.forEach(function (r) {
+        var show = !q || r.text.indexOf(q) !== -1;
+        r.tr.hidden = !show;
+        if (show) shown++;
+      });
+      g.heading.hidden = shown === 0;
+      g.wrap.hidden = shown === 0;
+      if (shown) any = true;
+    });
+    if (empty) empty.hidden = any;
+  });
+})();
+</script>
 {{ end }}
