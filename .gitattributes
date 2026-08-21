@@ -1,0 +1,12 @@
+# Normalize line endings to LF on checkout across every platform. The recipes
+# in registry/ are vendored byte-for-byte into block, which records their
+# sha256 in registry/SNAPSHOT; a CRLF checkout here would produce a copy whose
+# digest never matches the one taken on Linux.
+* text=auto eol=lf
+
+# Binary assets must never be EOL-translated (it would corrupt them).
+*.png -text
+*.gif -text
+*.jpg -text
+*.jpeg -text
+*.ico -text
