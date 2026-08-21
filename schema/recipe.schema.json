@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nao1215.github.io/block-registry/schema/recipe.schema.json",
+  "title": "block registry recipe",
+  "description": "How block finds and fetches one blockchain CLI. A recipe is a rule, not a list of versions: a new upstream release needs no change to it.",
+  "type": "object",
+  "required": ["name", "ecosystems", "description", "source"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "description": "The tool's name, which must equal the file name without .toml.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "ecosystems": {
+      "description": "The blockchain systems the tool serves. Display and discovery only: block never derives a toolchain from them.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" }
+    },
+    "description": {
+      "description": "One plain sentence saying what the tool is, read beside its name.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^\\S(.*\\S)?$"
+    },
+    "source": {
+      "description": "How versions and artifacts are discovered and fetched.",
+      "type": "object",
+      "required": ["type", "repo", "bin"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "description": "github_release downloads a release asset; http downloads from the upstream's own server.",
+          "enum": ["github_release", "http"]
+        },
+        "repo": {
+          "description": "The owner/name GitHub repository whose tags are the version source.",
+          "type": "string",
+          "pattern": "^[^/]+/[^/]+$"
+        },
+        "tag_prefix": {
+          "description": "Text before MAJOR.MINOR[.PATCH] in a tag. Defaults to \"v\"; set \"\" for bare tags.",
+          "type": "string"
+        },
+        "asset": {
+          "description": "github_release only. The asset file name template. Without an archive extension it is a single raw executable.",
+          "type": "string",
+          "pattern": "^[^/\\\\]+$"
+        },
+        "url": {
+          "description": "http only. The HTTPS URL template of the artifact.",
+          "type": "string",
+          "pattern": "^https://"
+        },
+        "strip_components": {
+          "description": "Leading path components to drop when unpacking an archive.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "platforms": {
+          "description": "The os/arch pairs the upstream ships. Empty means every platform block supports, or the keys of target.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["linux/amd64", "linux/arm64", "darwin/amd64", "darwin/arm64"] }
+        },
+        "bin": {
+          "description": "Executables inside the artifact, relative to its root. For a raw executable, the single name to install it under.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[^/\\\\:][^\\\\:]*[^/\\\\:]$|^[^/\\\\:]$" }
+        },
+        "os": {
+          "description": "Renames {os} (Go's GOOS) into the upstream's spelling.",
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "arch": {
+          "description": "Renames {arch} (Go's GOARCH) into the upstream's spelling.",
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "target": {
+          "description": "Maps a whole os/arch pair to the upstream's platform string, for {target}.",
+          "type": "object",
+          "propertyNames": { "enum": ["linux/amd64", "linux/arm64", "darwin/amd64", "darwin/arm64"] },
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    }
+  }
+}

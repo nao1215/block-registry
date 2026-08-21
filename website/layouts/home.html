@@ -1,0 +1,62 @@
+{{ define "main" }}
+  <section class="hero">
+    <h1>{{ site.Title }}</h1>
+    <p class="tagline">{{ site.Params.tagline }}</p>
+  </section>
+
+  <article class="prose">{{ .Content }}</article>
+
+  {{/* The catalog is rendered from registry/*.toml, mounted as site data, so
+       it says exactly what block installs — no second list to maintain. */}}
+  {{ $recipes := slice }}
+  {{ range $file, $recipe := hugo.Data.registry }}
+    {{ $recipes = $recipes | append (dict "name" $recipe.name "ecosystems" $recipe.ecosystems "description" $recipe.description "source" $recipe.source) }}
+  {{ end }}
+
+  {{ $ecosystems := slice }}
+  {{ range $recipes }}
+    {{ range .ecosystems }}
+      {{ if not (in $ecosystems .) }}{{ $ecosystems = $ecosystems | append . }}{{ end }}
+    {{ end }}
+  {{ end }}
+
+  <section class="prose wide" id="catalog">
+    <h2>Catalog</h2>
+    <p class="count">
+      {{ len $recipes }} tools across {{ len $ecosystems }} blockchain systems.
+      Run <code>block list</code> for the same list from your own binary.
+    </p>
+
+    {{ range sort $ecosystems }}
+      {{ $ecosystem := . }}
+      <h3 id="{{ $ecosystem | urlize }}">{{ $ecosystem }}</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Tool</th>
+            <th>Commands</th>
+            <th>Description</th>
+            <th>Upstream</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ range sort (where $recipes "ecosystems" "intersect" (slice $ecosystem)) "name" }}
+            <tr>
+              <td><code>{{ .name }}</code></td>
+              <td>
+                {{ range $i, $bin := .source.bin }}
+                  {{ if $i }}, {{ end }}<code>{{ path.Base $bin }}</code>
+                {{ end }}
+              </td>
+              <td>{{ .description }}</td>
+              <td>
+                <a href="https://github.com/{{ .source.repo }}" rel="noopener">{{ .source.repo }}</a>
+                {{ if eq .source.type "http" }}<span class="tag" title="Prebuilt artifacts come from the upstream's own download server">vendor download</span>{{ end }}
+              </td>
+            </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    {{ end }}
+  </section>
+{{ end }}

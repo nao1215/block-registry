@@ -1,0 +1,7 @@
+# Hugo build output for the catalog website.
+/website/public/
+/website/resources/
+/website/.hugo_build.lock
+
+# Built binaries
+/registry-lint

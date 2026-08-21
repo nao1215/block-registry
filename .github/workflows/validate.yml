@@ -1,0 +1,73 @@
+name: Validate
+
+# Every recipe is checked on every change: the file name, the ecosystems, the
+# description and the shape of the source table. This is offline and fast on
+# purpose — what a recipe resolves to upstream is checked by block's own
+# scheduled live workflow, which owns the resolver.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Lint recipes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
+      - name: Lint every recipe
+        run: make lint
+
+      - name: Test the linter
+        run: go test ./...
+
+      - name: Check formatting
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt needed for: $unformatted"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+  schema:
+    name: Recipes match the published schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # The JSON Schema is what editors and other tools read, so it must stay
+      # in step with the recipes themselves.
+      - name: Install check-jsonschema
+        run: pipx install check-jsonschema
+
+      - name: Convert recipes to JSON and validate them
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, tomllib
+          out = pathlib.Path("json"); out.mkdir(exist_ok=True)
+          for toml_file in sorted(pathlib.Path("registry").glob("*.toml")):
+              data = tomllib.loads(toml_file.read_text())
+              (out / (toml_file.stem + ".json")).write_text(json.dumps(data, indent=2))
+              print("converted", toml_file)
+          PY
+          check-jsonschema --schemafile schema/recipe.schema.json json/*.json

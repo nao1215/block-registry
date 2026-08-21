@@ -1,0 +1,15 @@
+# Surfpool: a local Solana network simulator by Txtx.
+# https://github.com/txtx/surfpool
+name = "surfpool"
+ecosystems = ["solana"]
+description = "Local Solana network that streams mainnet state for pre-deployment testing"
+
+[source]
+type = "github_release"
+repo = "txtx/surfpool"
+asset = "surfpool-{os}-{arch}.tar.gz"
+platforms = ["linux/amd64", "darwin/amd64", "darwin/arm64"]
+bin = ["surfpool"]
+
+[source.arch]
+amd64 = "x64"

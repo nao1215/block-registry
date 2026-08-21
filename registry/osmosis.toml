@@ -1,0 +1,11 @@
+# Osmosis: the osmosisd node of the Osmosis chain.
+# https://github.com/osmosis-labs/osmosis
+name = "osmosis"
+ecosystems = ["cosmos"]
+description = "Osmosis appchain node (osmosisd), the Cosmos AMM"
+
+[source]
+type = "github_release"
+repo = "osmosis-labs/osmosis"
+asset = "osmosisd-{version}-{os}-{arch}.tar.gz"
+bin = ["osmosisd"]

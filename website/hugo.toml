@@ -1,0 +1,58 @@
+# Configuration for the block registry catalog (GitHub Pages).
+#
+# The recipes themselves are the content: registry/*.toml is mounted as site
+# data and rendered by layouts/home.html, so the catalog cannot drift from
+# what block actually installs. The JSON Schema is mounted as a static file so
+# editors can point at a stable URL.
+baseURL = "https://nao1215.github.io/block-registry/"
+locale = "en-us"
+title = "block registry"
+disableKinds = ["taxonomy", "term", "rss"]
+enableRobotsTXT = true
+timeZone = "UTC"
+
+[params]
+tagline = "The blockchain CLIs block can install"
+description = "Recipes that tell block how to find and fetch blockchain development tools: Bitcoin Core, Foundry, geth, reth, Lighthouse, Agave, Anchor, Gaia, CometBFT, Hermes and more."
+repo = "https://github.com/nao1215/block-registry"
+
+[[module.mounts]]
+source = "../registry"
+target = "data/registry"
+
+[[module.mounts]]
+source = "../schema"
+target = "static/schema"
+
+[markup.highlight]
+noClasses = false
+style = "github"
+
+[markup.tableOfContents]
+startLevel = 2
+endLevel = 3
+
+[[menus.main]]
+name = "Catalog"
+pageRef = "/"
+weight = 10
+
+[[menus.main]]
+name = "Recipe format"
+pageRef = "/recipe"
+weight = 20
+
+[[menus.main]]
+name = "Adding a tool"
+pageRef = "/contributing"
+weight = 30
+
+[[menus.main]]
+name = "block"
+url = "https://github.com/nao1215/block"
+weight = 40
+
+[[menus.main]]
+name = "GitHub"
+url = "https://github.com/nao1215/block-registry"
+weight = 50
