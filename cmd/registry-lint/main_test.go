@@ -311,3 +311,47 @@ func TestPolicyFileIsItselfChecked(t *testing.T) {
 		t.Error("a missing policy file was accepted")
 	}
 }
+
+// A channel is a release line published under a tag that moves. What a recipe
+// declares about one is how that release names its assets, and the linter
+// holds it to the same rules the versioned template has.
+func TestChannels(t *testing.T) {
+	t.Parallel()
+	withChannel := func(body string) string {
+		return valid + "\n[source.channels.nightly]\n" + body
+	}
+	problems, err := lintDir(write(t, withChannel(`asset = "tool_nightly_{os}_{arch}.tar.gz"`+"\n")), testPolicy(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(problems) != 0 {
+		t.Errorf("a well-formed channel was refused: %v", problems)
+	}
+	tests := []struct{ name, body, want string }{
+		{"no asset", `asset = ""` + "\n", "asset template is required"},
+		{"a path", `asset = "dir/tool_nightly.tar.gz"` + "\n", "must be a bare file name"},
+		{"a version", `asset = "tool_{version}_{os}.tar.gz"` + "\n", "a channel release has no version"},
+		{"another kind of artifact", `asset = "tool_nightly_{os}"` + "\n", "not the same kind of artifact"},
+		{"an unknown placeholder", `asset = "tool_nightly_{channel}.tar.gz"` + "\n", "unknown placeholder {channel}"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			problems, err := lintDir(write(t, withChannel(tt.body)), testPolicy(t))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(strings.Join(problems, "\n"), tt.want) {
+				t.Errorf("problems = %v, want one containing %q", problems, tt.want)
+			}
+		})
+	}
+	// A channel name is spelled the way a constraint is.
+	problems, err = lintDir(write(t, valid+"\n[source.channels.Nightly]\nasset = \"tool_nightly_{os}_{arch}.tar.gz\"\n"), testPolicy(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(problems, "\n"), "lower-case letters") {
+		t.Errorf("an upper-case channel name was accepted: %v", problems)
+	}
+}
