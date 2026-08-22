@@ -333,6 +333,7 @@ func TestChannels(t *testing.T) {
 		{"a version", `asset = "tool_{version}_{os}.tar.gz"` + "\n", "a channel release has no version"},
 		{"another kind of artifact", `asset = "tool_nightly_{os}"` + "\n", "not the same kind of artifact"},
 		{"an unknown placeholder", `asset = "tool_nightly_{channel}.tar.gz"` + "\n", "unknown placeholder {channel}"},
+		{"{target} without the table", `asset = "tool_nightly_{target}.tar.gz"` + "\n", "{target} needs a [source.target] table"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

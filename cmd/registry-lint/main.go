@@ -408,6 +408,8 @@ func (s source) lintChannels() []error {
 			errs = append(errs, fmt.Errorf("channel %q: asset template %q uses {version}, and a channel release has no version", name, ch.Asset))
 		case isArchive(ch.Asset) != isArchive(s.Asset):
 			errs = append(errs, fmt.Errorf("channel %q: asset %q is not the same kind of artifact as %q", name, ch.Asset, s.Asset))
+		case strings.Contains(ch.Asset, "{target}") && len(s.Target) == 0:
+			errs = append(errs, fmt.Errorf("channel %q: {target} needs a [source.target] table", name))
 		}
 		for _, ph := range placeholders(ch.Asset) {
 			switch ph {

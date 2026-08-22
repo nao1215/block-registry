@@ -144,7 +144,8 @@
               "asset": {
                 "description": "The asset file name template for this channel. A channel names its assets after itself rather than after a version, so {version} is not available; {os}, {arch}, {target} and {commit} are.",
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "pattern": "^[^/\\\\]+$"
               }
             }
           },
