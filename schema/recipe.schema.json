@@ -4,7 +4,12 @@
   "title": "block registry recipe",
   "description": "How block finds and fetches one blockchain CLI. A recipe is a rule, not a list of versions: a new upstream release needs no change to it.",
   "type": "object",
-  "required": ["name", "ecosystems", "description", "source"],
+  "required": [
+    "name",
+    "ecosystems",
+    "description",
+    "source"
+  ],
   "additionalProperties": false,
   "properties": {
     "name": {
@@ -17,7 +22,10 @@
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" }
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9_-]*$"
+      }
     },
     "description": {
       "description": "One plain sentence saying what the tool is, read beside its name.",
@@ -29,12 +37,19 @@
     "source": {
       "description": "How versions and artifacts are discovered and fetched.",
       "type": "object",
-      "required": ["type", "repo", "bin"],
+      "required": [
+        "type",
+        "repo",
+        "bin"
+      ],
       "additionalProperties": false,
       "properties": {
         "type": {
           "description": "github_release downloads a release asset; http downloads from the upstream's own server.",
-          "enum": ["github_release", "http"]
+          "enum": [
+            "github_release",
+            "http"
+          ]
         },
         "repo": {
           "description": "The owner/name GitHub repository whose tags are the version source.",
@@ -80,17 +95,24 @@
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^[^/\\\\:][^\\\\:]*[^/\\\\:]$|^[^/\\\\:]$" }
+          "items": {
+            "type": "string",
+            "pattern": "^[^/\\\\:][^\\\\:]*[^/\\\\:]$|^[^/\\\\:]$"
+          }
         },
         "os": {
           "description": "Renames {os} (Go's GOOS) into the upstream's spelling.",
           "type": "object",
-          "additionalProperties": { "type": "string" }
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "arch": {
           "description": "Renames {arch} (Go's GOARCH) into the upstream's spelling.",
           "type": "object",
-          "additionalProperties": { "type": "string" }
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "target": {
           "description": "Maps a whole os/arch pair to the upstream's platform string, for {target}.",
@@ -105,7 +127,31 @@
               "windows/arm64"
             ]
           },
-          "additionalProperties": { "type": "string" }
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "channels": {
+          "description": "Release lines the upstream publishes under a tag that moves, keyed by the name block.toml asks for (\"nightly\"). block pins one by dereferencing that tag and taking the release published for the commit under it.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "asset"
+            ],
+            "properties": {
+              "asset": {
+                "description": "The asset file name template for this channel. A channel names its assets after itself rather than after a version, so {version} is not available; {os}, {arch}, {target} and {commit} are.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[^/\\\\]+$"
+              }
+            }
+          },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9-]*$"
+          }
         }
       }
     }

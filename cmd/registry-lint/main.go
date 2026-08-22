@@ -23,10 +23,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -87,6 +89,16 @@ type source struct {
 	OS              map[string]string `toml:"os"`
 	Arch            map[string]string
 	Target          map[string]string
+	Channels        map[string]channel
+}
+
+// channel is one release line an upstream publishes under a tag that moves,
+// such as Foundry's nightly. block pins one by dereferencing that tag and
+// taking the release published for the commit under it; what a recipe has to
+// say is how that release names its assets, because it names them after the
+// channel rather than after a version.
+type channel struct {
+	Asset string
 }
 
 func main() {
@@ -370,7 +382,60 @@ func (s source) lint() []error {
 	}
 	errs = append(errs, s.lintBin()...)
 	errs = append(errs, s.lintPlatforms()...)
+	errs = append(errs, s.lintChannels()...)
 	return errs
+}
+
+// lintChannels checks the moving release lines a source declares.
+func (s source) lintChannels() []error {
+	var errs []error
+	for _, name := range slices.Sorted(maps.Keys(s.Channels)) {
+		ch := s.Channels[name]
+		if !validChannelName(name) {
+			errs = append(errs, fmt.Errorf("channel %q: use lower-case letters, digits and '-', starting with a letter", name))
+		}
+		if s.Type != typeGitHubRelease {
+			errs = append(errs, fmt.Errorf("channel %q: channels need type %q", name, typeGitHubRelease))
+			continue
+		}
+		switch {
+		case ch.Asset == "":
+			errs = append(errs, fmt.Errorf("channel %q: asset template is required", name))
+			continue
+		case strings.ContainsAny(ch.Asset, "/\\"):
+			errs = append(errs, fmt.Errorf("channel %q: asset template %q must be a bare file name", name, ch.Asset))
+		case strings.Contains(ch.Asset, "{version}"):
+			errs = append(errs, fmt.Errorf("channel %q: asset template %q uses {version}, and a channel release has no version", name, ch.Asset))
+		case isArchive(ch.Asset) != isArchive(s.Asset):
+			errs = append(errs, fmt.Errorf("channel %q: asset %q is not the same kind of artifact as %q", name, ch.Asset, s.Asset))
+		case strings.Contains(ch.Asset, "{target}") && len(s.Target) == 0:
+			errs = append(errs, fmt.Errorf("channel %q: {target} needs a [source.target] table", name))
+		}
+		for _, ph := range placeholders(ch.Asset) {
+			switch ph {
+			case "os", "arch", "commit", "target":
+			default:
+				errs = append(errs, fmt.Errorf("channel %q: unknown placeholder {%s}", name, ph))
+			}
+		}
+	}
+	return errs
+}
+
+// validChannelName accepts the names an upstream gives a release line.
+func validChannelName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for i, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z':
+		case i > 0 && (r >= '0' && r <= '9' || r == '-'):
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func (s source) lintAsset() []error {
